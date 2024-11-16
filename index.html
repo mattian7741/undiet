@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calorie Calculator with Triangle Visualization</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .input-container input {
+            padding: 8px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            text-align: center;
+            transition: background-color 0.3s ease;
+        }
+
+        .input-container input::placeholder {
+            color: #999;
+        }
+
+        .triangle-container {
+            position: relative;
+            margin-top: 20px;
+            width: 400px;
+            height: 346.4px;
+        }
+
+        .triangle {
+            width: 400px; /* Match the triangle container dimensions */
+            height: 346.4px; /* Match the height of the triangle */
+            background-image: url('triangle.png'); /* Set the background image */
+            background-size: contain; /* Ensure the image fits inside the triangle */
+            background-repeat: no-repeat; /* Prevent tiling */
+            position: relative; /* Ensure labels and point position correctly */
+        }
+
+        .triangle-label {
+            position: absolute;
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .label-carb {
+            bottom: -20px;
+            left: -220px;
+            text-align: center;
+        }
+
+        .label-protein {
+            bottom: -20px;
+            right: -220px;
+            text-align: center;
+        }
+
+        .label-fat {
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+        }
+
+        .point {
+            background-color: white;
+            border-radius: 50%;
+            position: absolute;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body>
+    <div class="input-container">
+        <input type="number" id="fat" placeholder="Fat">
+        <input type="number" id="carb" placeholder="Carb">
+        <input type="number" id="protein" placeholder="Protein">
+        <input type="number" id="calories" placeholder="Calories">
+    </div>
+    <div class="triangle-container">
+        <div class="triangle"></div> <!-- The image will be shown here -->
+        <div class="triangle-label label-carb">Carb</div>
+        <div class="triangle-label label-protein">Protein</div>
+        <div class="triangle-label label-fat">Fat</div>
+        <div id="point" class="point"></div>
+    </div>
+
+    <script>
+        class TriangleVisualization {
+            constructor(triangleWidth, triangleHeight, pointElement) {
+                this.triangleWidth = triangleWidth;
+                this.triangleHeight = triangleHeight;
+                this.pointElement = pointElement;
+            }
+
+            updatePoint(fat, carb, protein) {
+                const total = fat + carb + protein;
+                if (total === 0) {
+                    this.pointElement.style.display = "none";
+                    return;
+                }
+
+                this.pointElement.style.display = "block";
+
+                const fatPercent = fat / total;
+                const carbPercent = carb / total;
+                const proteinPercent = protein / total;
+
+                const x = (this.triangleWidth / 2) * (1 + carbPercent - proteinPercent);
+                const y = this.triangleHeight * (1 - fatPercent);
+
+                this.pointElement.style.left = `${x}px`;
+                this.pointElement.style.top = `${y}px`;
+            }
+
+            scalePoint(calories, totalCalories) {
+                const area = (Math.sqrt(3) / 4) * Math.pow(this.triangleWidth, 2);
+                const pointArea = (calories * area) / totalCalories / 10;
+                const diameter = 2 * Math.sqrt(pointArea / Math.PI);
+
+                this.pointElement.style.width = `${diameter}px`;
+                this.pointElement.style.height = `${diameter}px`;
+            }
+        }
+
+        class CalorieCalculator {
+            constructor(dailyCalorieAllocation, caloriesInput) {
+                this.dailyCalorieAllocation = dailyCalorieAllocation;
+                this.caloriesInput = caloriesInput;
+                this.manualCalories = false;
+            }
+
+            calculateCalories(fat, carb, protein) {
+                const calculatedCalories = (fat * 9) + (carb * 4) + (protein * 4);
+
+                if (!this.manualCalories) {
+                    this.caloriesInput.value = calculatedCalories.toFixed(1);
+                    this.caloriesInput.style.backgroundColor = "white";
+                } else {
+                    this.limitCalories(calculatedCalories);
+                    this.updateColor(calculatedCalories);
+                }
+
+                return calculatedCalories;
+            }
+
+            limitCalories(calculatedCalories) {
+                const minCalories = calculatedCalories * 0.95;
+                const maxCalories = calculatedCalories * 1.15;
+
+                let userCalories = parseFloat(this.caloriesInput.value) || calculatedCalories;
+                userCalories = Math.min(Math.max(userCalories, minCalories), maxCalories);
+
+                this.caloriesInput.value = userCalories.toFixed(1);
+            }
+
+            updateColor(calculatedCalories) {
+                const userCalories = parseFloat(this.caloriesInput.value) || 0;
+                const deviation = userCalories / calculatedCalories;
+
+                const normalized = Math.min(Math.max((deviation - 0.95) / 0.2, 0), 1);
+                const gradient = [
+                    { stop: 0, color: "blue" },
+                    { stop: 0.5, color: "green" },
+                    { stop: 1, color: "red" },
+                ];
+
+                for (let i = 0; i < gradient.length - 1; i++) {
+                    const start = gradient[i];
+                    const end = gradient[i + 1];
+                    if (normalized >= start.stop && normalized <= end.stop) {
+                        const factor = (normalized - start.stop) / (end.stop - start.stop);
+                        const color = `rgb(${Math.round(255 * (1 - factor))}, ${Math.round(255 * factor)}, 128)`;
+                        this.caloriesInput.style.backgroundColor = color;
+                        return;
+                    }
+                }
+            }
+        }
+
+        class InputHandler {
+            constructor(fatInput, carbInput, proteinInput, caloriesInput, calculator, triangleVis) {
+                this.fatInput = fatInput;
+                this.carbInput = carbInput;
+                this.proteinInput = proteinInput;
+                this.caloriesInput = caloriesInput;
+                this.calculator = calculator;
+                this.triangleVis = triangleVis;
+
+                this.sensitivity = 0.2; // Scroll sensitivity
+                this.init();
+            }
+
+            init() {
+                this.fatInput.addEventListener("input", this.handleInput.bind(this));
+                this.carbInput.addEventListener("input", this.handleInput.bind(this));
+                this.proteinInput.addEventListener("input", this.handleInput.bind(this));
+                this.caloriesInput.addEventListener("input", this.handleCaloriesInput.bind(this));
+
+                // Add scroll event listeners
+                [this.fatInput, this.carbInput, this.proteinInput, this.caloriesInput].forEach(input => {
+                    input.addEventListener("wheel", this.handleScroll.bind(this));
+                });
+            }
+
+            handleInput() {
+                this.calculator.manualCalories = false;
+                const fat = parseFloat(this.fatInput.value) || 0;
+                const carb = parseFloat(this.carbInput.value) || 0;
+                const protein = parseFloat(this.proteinInput.value) || 0;
+
+                const calories = this.calculator.calculateCalories(fat, carb, protein);
+                this.triangleVis.updatePoint(fat, carb, protein);
+                this.triangleVis.scalePoint(calories, this.calculator.dailyCalorieAllocation);
+            }
+
+            handleCaloriesInput() {
+                this.calculator.manualCalories = true;
+                const fat = parseFloat(this.fatInput.value) || 0;
+                const carb = parseFloat(this.carbInput.value) || 0;
+                const protein = parseFloat(this.proteinInput.value) || 0;
+
+                const calories = this.calculator.calculateCalories(fat, carb, protein);
+                this.triangleVis.scalePoint(calories, this.calculator.dailyCalorieAllocation);
+            }
+
+            handleScroll(event) {
+                event.preventDefault(); // Prevent default scroll behavior
+
+                const step = (event.shiftKey ? 10 : 1) * this.sensitivity; // Adjust for shift key
+                const direction = event.deltaY < 0 ? step : -step; // Determine scroll direction
+                const input = event.target;
+
+                // Use floating-point value stored in the dataset or fallback to input value
+                const currentValue = parseFloat(input.dataset.value || input.value) || 0;
+
+                // Update floating-point value
+                const newValue = currentValue + direction;
+                input.dataset.value = newValue; // Store precise value
+                input.value = Math.round(newValue); // Display rounded value
+
+                if (input === this.caloriesInput) {
+                    // Handle calorie-specific logic
+                    const fat = parseFloat(this.fatInput.value) || 0;
+                    const carb = parseFloat(this.carbInput.value) || 0;
+                    const protein = parseFloat(this.proteinInput.value) || 0;
+                    const calculatedCalories = (fat * 9) + (carb * 4) + (protein * 4);
+
+                    this.calculator.limitCalories(calculatedCalories);
+                    this.calculator.updateColor(calculatedCalories);
+                    this.triangleVis.scalePoint(calculatedCalories, this.calculator.dailyCalorieAllocation);
+                } else {
+                    // Trigger input change for other inputs
+                    const inputEvent = new Event("input", { bubbles: true });
+                    input.dispatchEvent(inputEvent);
+                }
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const fatInput = document.getElementById("fat");
+            const carbInput = document.getElementById("carb");
+            const proteinInput = document.getElementById("protein");
+            const caloriesInput = document.getElementById("calories");
+            const point = document.getElementById("point");
+
+            const triangleVis = new TriangleVisualization(400, 346.4, point);
+            const calculator = new CalorieCalculator(2000, caloriesInput);
+            new InputHandler(fatInput, carbInput, proteinInput, caloriesInput, calculator, triangleVis);
+        });
+    </script>
+</body>
+</html>
